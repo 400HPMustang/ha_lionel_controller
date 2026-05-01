@@ -34,7 +34,7 @@ DEFAULT_ANNOUNCEMENTS = {
 # Value: Dict mapping announcement keys to display names
 TRAIN_MODELS = {
     "Generic": DEFAULT_ANNOUNCEMENTS,
-    
+
     "Polar Express": {
         "random": "Random",
         "ready_to_roll": "Polar Express",
@@ -44,16 +44,19 @@ TRAIN_MODELS = {
         "fastest_freight": "First Gift",
         "penna_flyer": "The King",
     },
+
     "Thomas The Tank Engine": {
         "random": "Random",
-        "all_aboard": "All Aboard",
-        "full_steam_ahead": "Full Steam Ahead!",
-        "number_1_engine": "Number 1 Engine",
-        "rocking_the_rails": "Rocking the Rails",
-        "oh_yeah": "Oh Yeah!",
-        "on_track_and_on_time": "On Track and On Time!",
+        "ready_to_roll": "Oh Yeah!",
+        "hey_there": "All Aboard",
+        "squeaky": "Full Steam Ahead!",
+        "water_and_fire": "Number 1 Engine",
+        "fastest_freight": "On Track and On Time!",
+        "penna_flyer": "Rocking the Rails",
     },
-    
+
+    # Add more train models below!
+}
     # Add more train models below!
     # Example:
     # "Hogwarts Express": {
