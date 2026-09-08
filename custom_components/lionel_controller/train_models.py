@@ -6,16 +6,16 @@ the correct names for their specific train.
 
 To contribute a new train model:
 1. Add a new entry to TRAIN_MODELS with your train's name as the key
-2. Map each announcement code (1-6) to the actual phrase your train says
+2. Map each announcement slot to the actual phrase your train says
 3. Submit a pull request!
 
-The announcement codes are:
-- 1: "Ready to Roll" equivalent
-- 2: "Hey There" equivalent
-- 3: "Squeaky" equivalent
-- 4: "Water and Fire" equivalent
-- 5: "Fastest Freight" equivalent
-- 6: "Penna Flyer" equivalent
+The announcement slots are:
+- ready_to_roll
+- hey_there
+- squeaky
+- water_and_fire
+- fastest_freight
+- penna_flyer
 """
 
 # Default/Generic announcement names used when train model is unknown
@@ -29,7 +29,7 @@ DEFAULT_ANNOUNCEMENTS = {
     "penna_flyer": "Penna Flyer",
 }
 
-# Train model specific announcement mappings
+# Train model-specific announcement mappings
 # Key: Train model name shown in config flow
 # Value: Dict mapping announcement keys to display names
 TRAIN_MODELS = {
@@ -55,17 +55,15 @@ TRAIN_MODELS = {
         "penna_flyer": "Rocking the Rails",
     },
 
-    # Add more train models below!
-    # Example:
-    # "Hogwarts Express": {
-    #     "random": "Random",
-    #     "ready_to_roll": "Platform 9¾",
-    #     "hey_there": "Welcome Aboard",
-    #     "squeaky": "Anything from the trolley?",
-    #     "water_and_fire": "Hogwarts",
-    #     "fastest_freight": "Expelliarmus",
-    #     "penna_flyer": "Expecto Patronum",
-    # },
+    "Hogwarts Express": {
+        "random": "Random",
+        "ready_to_roll": "Here's your ticket",
+        "hey_there": "Platform 9 3/4",
+        "squeaky": "Ron Weasley",
+        "water_and_fire": "Harry Potter",
+        "fastest_freight": "Anything off the trolley",
+        "penna_flyer": "Hermione Granger",
+    },
 }
 
 # List of available train models for config flow
@@ -95,4 +93,7 @@ def get_announcement_name(train_model: str, announcement_key: str) -> str:
         The display name for that announcement
     """
     names = get_announcement_names(train_model)
-    return names.get(announcement_key, announcement_key.replace("_", " ").title())
+    return names.get(
+        announcement_key,
+        announcement_key.replace("_", " ").title(),
+    )

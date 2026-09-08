@@ -10,7 +10,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import LionelTrainCoordinator
-from .const import ANNOUNCEMENTS, DOMAIN
+from .const import ANNOUNCEMENTS, CONF_TRAIN_MODEL, DOMAIN
+from .train_models import get_announcement_names
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,10 +35,19 @@ async def async_setup_entry(
         LionelTrainBellButton(coordinator, name),
     ]
     
-    # Add announcement buttons
+    # Add announcement buttons using names for the selected train model.
+    # The underlying generic announcement name is retained so the existing
+    # command lookup and entity unique IDs do not change.
     for announcement_name in ANNOUNCEMENTS:
+        announcement_key = announcement_name.lower().replace(" ", "_")
+        display_name = announcement_names.get(announcement_key, announcement_name)
         buttons.append(
-            LionelTrainAnnouncementButton(coordinator, name, announcement_name)
+            LionelTrainAnnouncementButton(
+                coordinator,
+                name,
+                announcement_name,
+                display_name,
+            )
         )
     
     async_add_entities(buttons, True)
@@ -222,13 +232,20 @@ class LionelTrainAnnouncementButton(LionelTrainButtonBase):
     _attr_icon = "mdi:bullhorn-variant"
 
     def __init__(
-        self, coordinator: LionelTrainCoordinator, device_name: str, announcement_name: str
+        self,
+        coordinator: LionelTrainCoordinator,
+        device_name: str,
+        announcement_name: str,
+        display_name: str,
     ) -> None:
         """Initialize the announcement button."""
         super().__init__(coordinator, device_name)
         self._announcement_name = announcement_name
-        self._attr_name = f"Announcement {announcement_name}"
-        self._attr_unique_id = f"{coordinator.mac_address}_announcement_{announcement_name.lower().replace(' ', '_')}"
+        self._attr_name = f"Announcement {display_name}"
+        self._attr_unique_id = (
+            f"{coordinator.mac_address}_announcement_"
+            f"{announcement_name.lower().replace(' ', '_')}"
+        )
 
     async def async_press(self) -> None:
         """Press the button."""
