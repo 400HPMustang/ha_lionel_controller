@@ -24,6 +24,8 @@ async def async_setup_entry(
     """Set up the Lionel Train button platform."""
     coordinator: LionelTrainCoordinator = hass.data[DOMAIN][config_entry.entry_id]
     name = config_entry.data[CONF_NAME]
+    train_model = config_entry.data.get(CONF_TRAIN_MODEL, "Generic")
+    announcement_names = get_announcement_names(train_model)
     
     buttons = [
         LionelTrainConnectButton(coordinator, name),
