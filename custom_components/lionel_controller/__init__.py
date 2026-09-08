@@ -479,8 +479,9 @@ class LionelTrainCoordinator:
     def _start_availability_monitor(self) -> None:
         """Start background task to monitor for train availability."""
         if self._monitor_task is None or self._monitor_task.done():
-            self._monitor_task = self.hass.async_create_task(
-                self._async_availability_monitor()
+            self._monitor_task = self.hass.async_create_background_task(
+                self._async_availability_monitor(),
+                f"lionel availability monitor {self.mac_address}",
             )
             _LOGGER.info("Started availability monitor for %s", self.mac_address)
 
@@ -536,8 +537,9 @@ class LionelTrainCoordinator:
         # Schedule automatic reconnection if enabled
         if self._auto_reconnect_enabled:
             if self._reconnect_task is None or self._reconnect_task.done():
-                self._reconnect_task = self.hass.async_create_task(
-                    self._async_reconnect_loop()
+                self._reconnect_task = self.hass.async_create_background_task(
+                    self._async_reconnect_loop(),
+                    f"lionel reconnect loop {self.mac_address}",
                 )
         else:
             _LOGGER.debug("Auto-reconnect is disabled, not attempting reconnection")
