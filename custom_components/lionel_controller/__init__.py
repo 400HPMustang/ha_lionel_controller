@@ -3,30 +3,28 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from pathlib import Path
 
+import voluptuous as vol
 from bleak import BleakClient, BleakError
-from bleak_retry_connector import establish_connection, BleakClientWithServiceCache
+from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 from homeassistant.components import bluetooth
-from homeassistant.components.bluetooth import BluetoothServiceInfoBleak, BluetoothChange
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.components.http import StaticPathConfig
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import CONF_NAME, Platform
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.typing import ConfigType
 
 from .const import (
     CMD_MASTER_VOLUME,
     CMD_SMOKE,
     CMD_SOUND_VOLUME,
     CONF_MAC_ADDRESS,
-    CONF_SERVICE_UUID,
-    DEFAULT_RETRY_COUNT,
-    DEFAULT_TIMEOUT,
-    DEVICE_INFO_SERVICE_UUID,
     DOMAIN,
     FIRMWARE_REVISION_CHAR_UUID,
     HARDWARE_REVISION_CHAR_UUID,
-    LIONCHIEF_SERVICE_UUID,
     MANUFACTURER_NAME_CHAR_UUID,
     MODEL_NUMBER_CHAR_UUID,
     NOTIFY_CHARACTERISTIC_UUID,
@@ -37,185 +35,218 @@ from .const import (
     SOUND_SOURCE_HORN,
     SOUND_SOURCE_SPEECH,
     WRITE_CHARACTERISTIC_UUID,
-    build_command,
     build_simple_command,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.NUMBER, Platform.SWITCH, Platform.BUTTON, Platform.BINARY_SENSOR, Platform.SENSOR]
+PLATFORMS: list[Platform] = [
+    Platform.NUMBER,
+    Platform.SWITCH,
+    Platform.BUTTON,
+    Platform.BINARY_SENSOR,
+    Platform.SENSOR,
+]
+
+ATTR_CONFIG_ENTRY_ID = "config_entry_id"
+
+SPEED_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string,
+        vol.Required("speed"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+    }
+)
+DIRECTION_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string,
+        vol.Required("direction"): vol.In(["forward", "reverse"]),
+    }
+)
+ANNOUNCEMENT_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string,
+        vol.Required("announcement"): vol.All(vol.Coerce(int), vol.Range(min=0, max=255)),
+    }
+)
+TRAIN_ONLY_SCHEMA = vol.Schema({vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string})
 
 
-@callback
-def _async_discovered_device(
-    service_info: BluetoothServiceInfoBleak, change: BluetoothChange
-) -> bool:
-    """Check if discovered device is a Lionel LionChief locomotive."""
-    if change != BluetoothChange.ADVERTISEMENT:
-        return False
-    
-    # Check for Lionel LionChief service UUID
-    lionel_service_uuid = LIONCHIEF_SERVICE_UUID.lower()
-    return any(
-        service_uuid.lower() == lionel_service_uuid
-        for service_uuid in service_info.service_uuids
-    )
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up integration-level services and static resources."""
+    _async_register_services(hass)
+    await _async_register_card(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Lionel Train Controller from a config entry."""
-    mac_address = entry.data[CONF_MAC_ADDRESS]
-    name = entry.data[CONF_NAME]
-    service_uuid = entry.data[CONF_SERVICE_UUID]
+    coordinator = LionelTrainCoordinator(
+        hass,
+        entry.data[CONF_MAC_ADDRESS],
+        entry.data[CONF_NAME],
+    )
+    entry.runtime_data = coordinator
 
-    coordinator = LionelTrainCoordinator(hass, mac_address, name, service_uuid)
-    
-    
-    # Start background monitoring without blocking Home Assistant startup
+    # Start monitoring in the background so a powered-off locomotive never
+    # blocks Home Assistant startup.
     await coordinator.async_setup()
     _LOGGER.info(
-        "Lionel Train Controller initialized for %s; "
-        "train will connect in the background when available",
-        mac_address,
+        "Lionel Train Controller initialized for %s; train will connect in the background when available",
+        coordinator.mac_address,
     )
 
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = coordinator
-
-    # Register services
-    await _async_register_services(hass, coordinator)
-
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    
-    # Register the custom Lovelace card
-    await _async_register_card(hass)
-    
     return True
-
-
-async def _async_register_services(hass: HomeAssistant, coordinator: "LionelTrainCoordinator") -> None:
-    """Register Home Assistant services for train control."""
-    import voluptuous as vol
-    from homeassistant.helpers import config_validation as cv
-
-    # Service schemas
-    SPEED_SCHEMA = vol.Schema({
-        vol.Required("speed"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
-    })
-
-    DIRECTION_SCHEMA = vol.Schema({
-        vol.Required("direction"): vol.In(["forward", "reverse"]),
-    })
-
-    ANNOUNCEMENT_SCHEMA = vol.Schema({
-        vol.Required("announcement"): vol.Coerce(int),
-    })
-
-    async def set_speed_service(call):
-        """Service to set train speed."""
-        speed = call.data["speed"]
-        _LOGGER.info("Setting train speed to %d via service", speed)
-        await coordinator.async_set_speed(speed)
-
-    async def set_direction_service(call):
-        """Service to set train direction."""
-        direction = call.data["direction"]
-        forward = direction == "forward"
-        _LOGGER.info("Setting train direction to %s via service", direction)
-        await coordinator.async_set_direction(forward)
-
-    async def stop_service(call):
-        """Service to stop the train."""
-        _LOGGER.info("Stopping train via service")
-        await coordinator.async_set_speed(0)
-
-    async def horn_service(call):
-        """Service to sound the horn."""
-        _LOGGER.info("Sounding horn via service")
-        await coordinator.async_set_horn(True)
-        await asyncio.sleep(0.5)
-        await coordinator.async_set_horn(False)
-
-    async def bell_service(call):
-        """Service to ring the bell."""
-        _LOGGER.info("Ringing bell via service")
-        await coordinator.async_set_bell(True)
-        await asyncio.sleep(0.5)
-        await coordinator.async_set_bell(False)
-
-    async def lights_on_service(call):
-        """Service to turn lights on."""
-        _LOGGER.info("Turning lights on via service")
-        await coordinator.async_set_lights(True)
-
-    async def lights_off_service(call):
-        """Service to turn lights off."""
-        _LOGGER.info("Turning lights off via service")
-        await coordinator.async_set_lights(False)
-
-    async def play_announcement_service(call):
-        """Service to play an announcement."""
-        announcement = call.data["announcement"]
-        _LOGGER.info("Playing announcement %d via service", announcement)
-        await coordinator.async_play_announcement(announcement)
-
-    async def connect_service(call):
-        """Service to connect to the train."""
-        _LOGGER.info("Connecting to train via service")
-        await coordinator.async_force_reconnect()
-
-    async def disconnect_service(call):
-        """Service to disconnect from the train."""
-        _LOGGER.info("Disconnecting from train via service")
-        await coordinator.async_disconnect()
-
-    # Register services if not already registered
-    if not hass.services.has_service(DOMAIN, "set_speed"):
-        hass.services.async_register(DOMAIN, "set_speed", set_speed_service, schema=SPEED_SCHEMA)
-    if not hass.services.has_service(DOMAIN, "set_direction"):
-        hass.services.async_register(DOMAIN, "set_direction", set_direction_service, schema=DIRECTION_SCHEMA)
-    if not hass.services.has_service(DOMAIN, "stop"):
-        hass.services.async_register(DOMAIN, "stop", stop_service)
-    if not hass.services.has_service(DOMAIN, "horn"):
-        hass.services.async_register(DOMAIN, "horn", horn_service)
-    if not hass.services.has_service(DOMAIN, "bell"):
-        hass.services.async_register(DOMAIN, "bell", bell_service)
-    if not hass.services.has_service(DOMAIN, "lights_on"):
-        hass.services.async_register(DOMAIN, "lights_on", lights_on_service)
-    if not hass.services.has_service(DOMAIN, "lights_off"):
-        hass.services.async_register(DOMAIN, "lights_off", lights_off_service)
-    if not hass.services.has_service(DOMAIN, "play_announcement"):
-        hass.services.async_register(DOMAIN, "play_announcement", play_announcement_service, schema=ANNOUNCEMENT_SCHEMA)
-    if not hass.services.has_service(DOMAIN, "connect"):
-        hass.services.async_register(DOMAIN, "connect", connect_service)
-    if not hass.services.has_service(DOMAIN, "disconnect"):
-        hass.services.async_register(DOMAIN, "disconnect", disconnect_service)
-
-    _LOGGER.info("Registered Lionel Train services")
-
-
-async def _async_register_card(hass: HomeAssistant) -> None:
-    """Register the custom Lovelace card."""
-    import os
-    card_path = os.path.join(os.path.dirname(__file__), "www")
-    
-    # Use the older API that's compatible with more HA versions
-    try:
-        hass.http.register_static_path(
-            "/lionel_controller", card_path, cache_headers=False
-        )
-        _LOGGER.info("Lionel Train card available at /lionel_controller/lionel-train-card.js")
-    except Exception as err:
-        _LOGGER.debug("Static path may already be registered: %s", err)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
-        coordinator = hass.data[DOMAIN].pop(entry.entry_id)
-        await coordinator.async_shutdown()
+    if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
+        return False
 
-    return unload_ok
+    coordinator = entry.runtime_data
+    await coordinator.async_shutdown()
+    return True
+
+
+def _get_service_coordinator(hass: HomeAssistant, call: ServiceCall):
+    """Resolve the train targeted by a service action."""
+    entry_id = call.data.get(ATTR_CONFIG_ENTRY_ID)
+
+    if entry_id:
+        entry = hass.config_entries.async_get_entry(entry_id)
+        if entry is None or entry.domain != DOMAIN:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="entry_not_found",
+            )
+        if entry.state is not ConfigEntryState.LOADED:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="entry_not_loaded",
+            )
+        return entry.runtime_data
+
+    loaded_entries = [
+        entry
+        for entry in hass.config_entries.async_entries(DOMAIN)
+        if entry.state is ConfigEntryState.LOADED
+    ]
+
+    # Backwards compatibility: old service calls without a target still work
+    # when exactly one Lionel config entry is loaded. With multiple trains the
+    # old behavior was ambiguous and could silently control the wrong train.
+    if len(loaded_entries) == 1:
+        return loaded_entries[0].runtime_data
+
+    if not loaded_entries:
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="no_loaded_entries",
+        )
+
+    raise ServiceValidationError(
+        translation_domain=DOMAIN,
+        translation_key="entry_required",
+    )
+
+
+def _raise_if_failed(success: bool, action: str) -> None:
+    """Raise a user-visible error when a train command fails."""
+    if not success:
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="action_failed",
+            translation_placeholders={"action": action},
+        )
+
+
+def _async_register_services(hass: HomeAssistant) -> None:
+    """Register integration-level train control service actions."""
+
+    async def set_speed_service(call: ServiceCall) -> None:
+        coordinator = _get_service_coordinator(hass, call)
+        _raise_if_failed(
+            await coordinator.async_set_speed(call.data["speed"]),
+            "set speed",
+        )
+
+    async def set_direction_service(call: ServiceCall) -> None:
+        coordinator = _get_service_coordinator(hass, call)
+        direction = call.data["direction"]
+        _raise_if_failed(
+            await coordinator.async_set_direction(direction == "forward"),
+            f"set direction to {direction}",
+        )
+
+    async def stop_service(call: ServiceCall) -> None:
+        coordinator = _get_service_coordinator(hass, call)
+        _raise_if_failed(await coordinator.async_set_speed(0), "stop")
+
+    async def horn_service(call: ServiceCall) -> None:
+        coordinator = _get_service_coordinator(hass, call)
+        _raise_if_failed(await coordinator.async_set_horn(True), "start horn")
+        await asyncio.sleep(0.5)
+        _raise_if_failed(await coordinator.async_set_horn(False), "stop horn")
+
+    async def bell_service(call: ServiceCall) -> None:
+        coordinator = _get_service_coordinator(hass, call)
+        _raise_if_failed(await coordinator.async_set_bell(True), "start bell")
+        await asyncio.sleep(0.5)
+        _raise_if_failed(await coordinator.async_set_bell(False), "stop bell")
+
+    async def lights_on_service(call: ServiceCall) -> None:
+        coordinator = _get_service_coordinator(hass, call)
+        _raise_if_failed(await coordinator.async_set_lights(True), "turn lights on")
+
+    async def lights_off_service(call: ServiceCall) -> None:
+        coordinator = _get_service_coordinator(hass, call)
+        _raise_if_failed(await coordinator.async_set_lights(False), "turn lights off")
+
+    async def play_announcement_service(call: ServiceCall) -> None:
+        coordinator = _get_service_coordinator(hass, call)
+        _raise_if_failed(
+            await coordinator.async_play_announcement(call.data["announcement"]),
+            "play announcement",
+        )
+
+    async def connect_service(call: ServiceCall) -> None:
+        coordinator = _get_service_coordinator(hass, call)
+        _raise_if_failed(await coordinator.async_force_reconnect(), "connect")
+
+    async def disconnect_service(call: ServiceCall) -> None:
+        coordinator = _get_service_coordinator(hass, call)
+        _raise_if_failed(await coordinator.async_disconnect(), "disconnect")
+
+    services = {
+        "set_speed": (set_speed_service, SPEED_SCHEMA),
+        "set_direction": (set_direction_service, DIRECTION_SCHEMA),
+        "stop": (stop_service, TRAIN_ONLY_SCHEMA),
+        "horn": (horn_service, TRAIN_ONLY_SCHEMA),
+        "bell": (bell_service, TRAIN_ONLY_SCHEMA),
+        "lights_on": (lights_on_service, TRAIN_ONLY_SCHEMA),
+        "lights_off": (lights_off_service, TRAIN_ONLY_SCHEMA),
+        "play_announcement": (play_announcement_service, ANNOUNCEMENT_SCHEMA),
+        "connect": (connect_service, TRAIN_ONLY_SCHEMA),
+        "disconnect": (disconnect_service, TRAIN_ONLY_SCHEMA),
+    }
+
+    for service_name, (handler, schema) in services.items():
+        if not hass.services.has_service(DOMAIN, service_name):
+            hass.services.async_register(
+                DOMAIN, service_name, handler, schema=schema
+            )
+
+
+async def _async_register_card(hass: HomeAssistant) -> None:
+    """Register the custom Lovelace card using the async-safe HTTP API."""
+    card_path = Path(__file__).parent / "www"
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig("/lionel_controller", str(card_path), False)]
+    )
+    _LOGGER.debug(
+        "Lionel Train card available at /lionel_controller/lionel-train-card.js"
+    )
 
 
 class LionelTrainCoordinator:
@@ -226,13 +257,11 @@ class LionelTrainCoordinator:
         hass: HomeAssistant,
         mac_address: str,
         name: str,
-        service_uuid: str,
     ) -> None:
         """Initialize the coordinator."""
         self.hass = hass
         self.mac_address = mac_address
         self.name = name
-        self.service_uuid = service_uuid
         self._client: BleakClientWithServiceCache | None = None
         self._connected = False
         self._lock = asyncio.Lock()
@@ -590,7 +619,12 @@ class LionelTrainCoordinator:
             except (BleakError, asyncio.TimeoutError) as err:
                 _LOGGER.debug("Reconnection attempt %d failed: %s", attempt, err)
         
-        _LOGGER.warning("Failed to reconnect to train after %d attempts. Will retry when command is sent.", max_attempts)
+        _LOGGER.warning(
+            "Failed to reconnect to train after %d attempts; returning to availability monitoring",
+            max_attempts,
+        )
+        if self._auto_reconnect_enabled and not self.connected:
+            self._start_availability_monitor()
 
     async def _async_connect(self) -> None:
         """Connect to the train."""
@@ -828,55 +862,69 @@ class LionelTrainCoordinator:
 
     async def async_send_command(self, command_data: list[int]) -> bool:
         """Send a command to the train."""
-        async with self._lock:
-            # Try to connect if not connected
-            if not self.connected:
-                try:
-                    await self._async_connect()
-                except BleakError as err:
-                    _LOGGER.error("Failed to connect before sending command: %s", err)
-                    return False
+        # Connect before taking the command lock. _async_connect() also uses this
+        # lock, so trying to connect from inside the locked section can deadlock.
+        if not self.connected:
+            try:
+                await self._async_connect()
+            except BleakError as err:
+                _LOGGER.error("Failed to connect before sending command: %s", err)
+                return False
 
-            # Always use the known-good write characteristic UUID
-            write_char_uuid = WRITE_CHARACTERISTIC_UUID
-            
-            # Retry command sending with better error handling
-            max_retries = 3
-            for attempt in range(max_retries):
-                try:
+        write_char_uuid = WRITE_CHARACTERISTIC_UUID
+        max_retries = 3
+
+        for attempt in range(max_retries):
+            try:
+                async with self._lock:
+                    if not self._client or not self.connected:
+                        raise BleakError("Train disconnected before command could be sent")
+
                     await self._client.write_gatt_char(
                         write_char_uuid, bytearray(command_data)
                     )
-                    hex_string = ''.join(f'{b:02x}' for b in command_data)
-                    _LOGGER.info("✅ Sent command successfully to %s: %s (hex: %s)", 
-                               write_char_uuid, command_data, hex_string)
-                    
-                    # Update the status sensor with the sent command
-                    self._last_notification_hex = hex_string
-                    self._successful_commands += 1
-                    self._notify_state_change()
-                    
-                    return True
 
-                except BleakError as err:
-                    _LOGGER.warning("Failed to send command to %s (attempt %d/%d): %s", 
-                                  write_char_uuid, attempt + 1, max_retries, err)
-                    self._connected = False
-                    
-                    # Try to reconnect on subsequent attempts
-                    if attempt < max_retries - 1:
-                        try:
-                            await asyncio.sleep(0.5 * (attempt + 1))  # Exponential backoff
-                            await self._async_connect()
-                        except BleakError:
-                            _LOGGER.debug("Reconnection attempt %d failed", attempt + 1)
-                            continue
-                    else:
-                        _LOGGER.error("Failed to send command after %d attempts: %s", max_retries, err)
-                        self._failed_commands += 1
-                        self._record_error(f"Command failed: {err}")
-                        
-            return False
+                hex_string = "".join(f"{byte:02x}" for byte in command_data)
+                _LOGGER.info(
+                    "Sent command successfully to %s: %s (hex: %s)",
+                    write_char_uuid,
+                    command_data,
+                    hex_string,
+                )
+
+                self._last_notification_hex = hex_string
+                self._successful_commands += 1
+                self._notify_state_change()
+                return True
+
+            except BleakError as err:
+                _LOGGER.warning(
+                    "Failed to send command to %s (attempt %d/%d): %s",
+                    write_char_uuid,
+                    attempt + 1,
+                    max_retries,
+                    err,
+                )
+                self._connected = False
+
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(0.5 * (attempt + 1))
+                    try:
+                        await self._async_connect()
+                    except BleakError:
+                        _LOGGER.debug(
+                            "Reconnection attempt %d failed", attempt + 1
+                        )
+                else:
+                    _LOGGER.error(
+                        "Failed to send command after %d attempts: %s",
+                        max_retries,
+                        err,
+                    )
+                    self._failed_commands += 1
+                    self._record_error(f"Command failed: {err}")
+
+        return False
 
     async def async_set_speed(self, speed: int) -> bool:
         """Set train speed (0-100)."""

@@ -17,11 +17,10 @@
       },
       "manual": {
         "title": "Manual Configuration",
-        "description": "Enter your Lionel LionChief locomotive details manually.",
+        "description": "Enter your Lionel LionChief locomotive details manually. The train must currently be powered on and reachable through Home Assistant Bluetooth.",
         "data": {
           "mac_address": "Bluetooth MAC address",
-          "name": "Name",
-          "service_uuid": "Service UUID"
+          "name": "Name"
         }
       },
       "bluetooth_confirm": {
@@ -30,14 +29,104 @@
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to the train. Make sure it's powered on and in range.",
+      "cannot_connect": "The train is not currently reachable through Home Assistant Bluetooth. Make sure it is powered on and in range of a local adapter or Bluetooth proxy.",
       "invalid_mac": "Invalid MAC address format",
       "unknown": "Unexpected error occurred",
-      "no_devices_found": "No Lionel trains found. Make sure your train is powered on, then select 'Enter MAC address manually' or try again."
+      "no_devices_found": "No Lionel trains are currently visible to Home Assistant Bluetooth. Power on the train, then reopen this flow or use manual entry."
     },
     "abort": {
       "already_configured": "Device is already configured",
-      "not_lionel_device": "This device is not a Lionel LionChief locomotive"
+      "not_lionel_device": "This device is not a Lionel LionChief locomotive",
+      "unknown": "The setup flow lost the selected train. Start the setup again."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "connection": {
+        "name": "Connection"
+      }
+    },
+    "button": {
+      "connect": {
+        "name": "Connect"
+      },
+      "disconnect": {
+        "name": "Disconnect"
+      },
+      "stop": {
+        "name": "Stop"
+      },
+      "forward": {
+        "name": "Forward"
+      },
+      "reverse": {
+        "name": "Reverse"
+      },
+      "horn": {
+        "name": "Horn"
+      },
+      "bell": {
+        "name": "Bell"
+      }
+    },
+    "number": {
+      "throttle": {
+        "name": "Throttle"
+      },
+      "master_volume": {
+        "name": "Master Volume"
+      },
+      "horn_volume": {
+        "name": "Horn Volume"
+      },
+      "bell_volume": {
+        "name": "Bell Volume"
+      },
+      "speech_volume": {
+        "name": "Speech Volume"
+      },
+      "engine_volume": {
+        "name": "Engine Volume"
+      }
+    },
+    "sensor": {
+      "status": {
+        "name": "Status"
+      },
+      "train_model": {
+        "name": "Train Model"
+      },
+      "direction": {
+        "name": "Direction"
+      },
+      "diagnostics": {
+        "name": "Diagnostics"
+      }
+    },
+    "switch": {
+      "lights": {
+        "name": "Lights"
+      },
+      "auto_reconnect": {
+        "name": "Auto Reconnect"
+      }
+    }
+  },
+  "exceptions": {
+    "entry_not_found": {
+      "message": "The selected Lionel train configuration no longer exists."
+    },
+    "entry_not_loaded": {
+      "message": "The selected Lionel train configuration is not loaded."
+    },
+    "no_loaded_entries": {
+      "message": "No Lionel train configurations are currently loaded."
+    },
+    "entry_required": {
+      "message": "More than one Lionel train is configured. Select the train to control in the action."
+    },
+    "action_failed": {
+      "message": "The Lionel train did not complete the requested action: {action}."
     }
   }
 }

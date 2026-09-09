@@ -24,7 +24,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the Lionel Train binary sensor platform."""
-    coordinator: LionelTrainCoordinator = hass.data[DOMAIN][config_entry.entry_id]
+    coordinator: LionelTrainCoordinator = config_entry.runtime_data
     name = config_entry.data[CONF_NAME]
     
     async_add_entities([LionelTrainConnectionSensor(coordinator, name)], True)
@@ -34,7 +34,7 @@ class LionelTrainConnectionSensor(BinarySensorEntity):
     """Binary sensor for Lionel Train connection status."""
 
     _attr_has_entity_name = True
-    _attr_name = "Connection"
+    _attr_translation_key = "connection"
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
 
     def __init__(self, coordinator: LionelTrainCoordinator, device_name: str) -> None:
