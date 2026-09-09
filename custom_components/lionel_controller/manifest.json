@@ -1,23 +1,23 @@
 {
   "domain": "lionel_controller",
   "name": "Lionel Train Controller",
-  "version": "1.2.0",
-  "documentation": "https://github.com/400HPMustang/ha_lionel_controller",
-  "issue_tracker": "https://github.com/400HPMustang/ha_lionel_controller/issues",
+  "bluetooth": [
+    {
+      "connectable": true,
+      "service_uuid": "e20a39f4-73f5-4bc4-a12f-17d1ad07a961"
+    }
+  ],
+  "codeowners": [
+    "@400HPMustang"
+  ],
+  "config_flow": true,
   "dependencies": [
     "bluetooth",
     "http"
   ],
-  "config_flow": true,
-  "codeowners": [
-    "@400HPMustang"
-  ],
+  "documentation": "https://github.com/400HPMustang/ha_lionel_controller",
   "integration_type": "device",
-  "bluetooth": [
-    {
-      "service_uuid": "e20a39f4-73f5-4bc4-a12f-17d1ad07a961",
-      "connectable": true
-    }
-  ],
-  "iot_class": "local_push"
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/400HPMustang/ha_lionel_controller/issues",
+  "version": "1.2.0"
 }
