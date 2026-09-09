@@ -561,7 +561,7 @@ class LionelTrainCoordinator:
 
     def _on_disconnected(self, client: BleakClient) -> None:
         """Handle disconnection from the train."""
-        _LOGGER.warning("Disconnected from Lionel train at %s", self.mac_address)
+        _LOGGER.info("Disconnected from Lionel train at %s", self.mac_address)
         self._connected = False
         self._notify_state_change()
         
