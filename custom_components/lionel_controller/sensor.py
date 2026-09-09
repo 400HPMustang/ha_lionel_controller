@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
@@ -21,7 +22,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the Lionel Train sensor platform."""
-    coordinator: LionelTrainCoordinator = hass.data[DOMAIN][config_entry.entry_id]
+    coordinator: LionelTrainCoordinator = config_entry.runtime_data
     name = config_entry.data[CONF_NAME]
     train_model = config_entry.data.get(CONF_TRAIN_MODEL, "Generic")
     
@@ -37,7 +38,7 @@ class LionelTrainStatusSensor(SensorEntity):
     """Sensor for Lionel Train status information."""
 
     _attr_has_entity_name = True
-    _attr_name = "Status"
+    _attr_translation_key = "status"
     _attr_icon = "mdi:train"
 
     def __init__(self, coordinator: LionelTrainCoordinator, device_name: str) -> None:
@@ -70,7 +71,7 @@ class LionelTrainStatusSensor(SensorEntity):
         return self._coordinator.connected
 
     @property
-    def extra_state_attributes(self) -> dict[str, any]:
+    def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional state attributes."""
         return {
             "speed": self._coordinator.speed,
@@ -85,7 +86,7 @@ class LionelTrainModelSensor(SensorEntity):
     """Sensor for Lionel Train model information."""
 
     _attr_has_entity_name = True
-    _attr_name = "Train Model"
+    _attr_translation_key = "train_model"
     _attr_icon = "mdi:train-variant"
 
     def __init__(self, coordinator: LionelTrainCoordinator, device_name: str, train_model: str) -> None:
@@ -113,7 +114,7 @@ class LionelTrainDirectionSensor(SensorEntity):
     """Sensor for Lionel Train direction (forward/reverse)."""
 
     _attr_has_entity_name = True
-    _attr_name = "Direction"
+    _attr_translation_key = "direction"
     _attr_icon = "mdi:arrow-left-right"
 
     def __init__(self, coordinator: LionelTrainCoordinator, device_name: str) -> None:
@@ -145,7 +146,7 @@ class LionelTrainDiagnosticsSensor(SensorEntity):
     """Sensor for Lionel Train diagnostics and error tracking."""
 
     _attr_has_entity_name = True
-    _attr_name = "Diagnostics"
+    _attr_translation_key = "diagnostics"
     _attr_icon = "mdi:bug"
 
     def __init__(self, coordinator: LionelTrainCoordinator, device_name: str) -> None:
@@ -178,7 +179,7 @@ class LionelTrainDiagnosticsSensor(SensorEntity):
         return True
 
     @property
-    def extra_state_attributes(self) -> dict[str, any]:
+    def extra_state_attributes(self) -> dict[str, Any]:
         """Return diagnostic attributes."""
         return {
             "last_error": self._coordinator.last_error,

@@ -22,7 +22,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the Lionel Train button platform."""
-    coordinator: LionelTrainCoordinator = hass.data[DOMAIN][config_entry.entry_id]
+    coordinator: LionelTrainCoordinator = config_entry.runtime_data
     name = config_entry.data[CONF_NAME]
     train_model = config_entry.data.get(CONF_TRAIN_MODEL, "Generic")
     announcement_names = get_announcement_names(train_model)
@@ -91,7 +91,7 @@ class LionelTrainConnectButton(ButtonEntity):
     """Button for connecting to the train."""
 
     _attr_has_entity_name = True
-    _attr_name = "Connect"
+    _attr_translation_key = "connect"
     _attr_icon = "mdi:bluetooth-connect"
 
     def __init__(self, coordinator: LionelTrainCoordinator, device_name: str) -> None:
@@ -129,7 +129,7 @@ class LionelTrainConnectButton(ButtonEntity):
 class LionelTrainDisconnectButton(LionelTrainButtonBase):
     """Button for disconnecting from the train."""
 
-    _attr_name = "Disconnect"
+    _attr_translation_key = "disconnect"
     _attr_icon = "mdi:bluetooth-off"
 
     def __init__(self, coordinator: LionelTrainCoordinator, device_name: str) -> None:
@@ -145,7 +145,7 @@ class LionelTrainDisconnectButton(LionelTrainButtonBase):
 class LionelTrainStopButton(LionelTrainButtonBase):
     """Button for stopping the train."""
 
-    _attr_name = "Stop"
+    _attr_translation_key = "stop"
     _attr_icon = "mdi:stop"
 
     def __init__(self, coordinator: LionelTrainCoordinator, device_name: str) -> None:
@@ -161,7 +161,7 @@ class LionelTrainStopButton(LionelTrainButtonBase):
 class LionelTrainForwardButton(LionelTrainButtonBase):
     """Button for setting forward direction."""
 
-    _attr_name = "Forward"
+    _attr_translation_key = "forward"
     _attr_icon = "mdi:arrow-right"
 
     def __init__(self, coordinator: LionelTrainCoordinator, device_name: str) -> None:
@@ -177,7 +177,7 @@ class LionelTrainForwardButton(LionelTrainButtonBase):
 class LionelTrainReverseButton(LionelTrainButtonBase):
     """Button for setting reverse direction."""
 
-    _attr_name = "Reverse"
+    _attr_translation_key = "reverse"
     _attr_icon = "mdi:arrow-left"
 
     def __init__(self, coordinator: LionelTrainCoordinator, device_name: str) -> None:
@@ -193,7 +193,7 @@ class LionelTrainReverseButton(LionelTrainButtonBase):
 class LionelTrainHornButton(LionelTrainButtonBase):
     """Button for sounding the horn."""
 
-    _attr_name = "Horn"
+    _attr_translation_key = "horn"
     _attr_icon = "mdi:bullhorn"
 
     def __init__(self, coordinator: LionelTrainCoordinator, device_name: str) -> None:
@@ -212,7 +212,7 @@ class LionelTrainHornButton(LionelTrainButtonBase):
 class LionelTrainBellButton(LionelTrainButtonBase):
     """Button for ringing the bell."""
 
-    _attr_name = "Bell"
+    _attr_translation_key = "bell"
     _attr_icon = "mdi:bell"
 
     def __init__(self, coordinator: LionelTrainCoordinator, device_name: str) -> None:

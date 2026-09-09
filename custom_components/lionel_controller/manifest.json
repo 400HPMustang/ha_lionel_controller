@@ -1,24 +1,23 @@
 {
   "domain": "lionel_controller",
   "name": "Lionel Train Controller",
-  "version": "1.1.0",
-  "documentation": "https://github.com/BlackandBlue1908/ha_lionel_controller",
-  "issue_tracker": "https://github.com/BlackandBlue1908/ha_lionel_controller/issues",
-  "dependencies": ["bluetooth"],
-  "config_flow": true,
-  "codeowners": ["@BlackandBlue1908"],
-  "requirements": ["bleak>=0.20.0", "bleak-retry-connector>=3.4.0"],
   "bluetooth": [
     {
-      "service_uuid": "e20a39f4-73f5-4bc4-a12f-17d1ad07a961",
-      "connectable": true
-    },
-    {
-      "service_uuid": "0000180a-0000-1000-8000-00805f9b34fb",
-      "connectable": false
+      "connectable": true,
+      "service_uuid": "e20a39f4-73f5-4bc4-a12f-17d1ad07a961"
     }
   ],
-  "bluetooth_discovery": true,
+  "codeowners": [
+    "@400HPMustang"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "bluetooth",
+    "http"
+  ],
+  "documentation": "https://github.com/400HPMustang/ha_lionel_controller",
+  "integration_type": "device",
   "iot_class": "local_push",
-  "quality_scale": "silver"
+  "issue_tracker": "https://github.com/400HPMustang/ha_lionel_controller/issues",
+  "version": "1.2.0"
 }

@@ -1,8 +1,4 @@
 {
   "name": "Lionel Train Controller",
-  "hacs": "1.32.0",
-  "domains": ["number", "switch", "button", "binary_sensor", "sensor"],
-  "homeassistant": "2023.8.0",
-  "iot_class": "Local Push",
-  "render_readme": true
+  "homeassistant": "2025.7.0"
 }

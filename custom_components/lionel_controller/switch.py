@@ -22,7 +22,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the Lionel Train switch platform."""
-    coordinator: LionelTrainCoordinator = hass.data[DOMAIN][config_entry.entry_id]
+    coordinator: LionelTrainCoordinator = config_entry.runtime_data
     name = config_entry.data[CONF_NAME]
     
     switches = [
@@ -56,7 +56,7 @@ class LionelTrainSwitchBase(SwitchEntity):
 class LionelTrainLightsSwitch(LionelTrainSwitchBase):
     """Switch for controlling train lights."""
 
-    _attr_name = "Lights"
+    _attr_translation_key = "lights"
     _attr_icon = "mdi:lightbulb"
 
     def __init__(self, coordinator: LionelTrainCoordinator, device_name: str) -> None:
@@ -84,7 +84,7 @@ class LionelTrainAutoReconnectSwitch(SwitchEntity):
     """Switch for enabling/disabling automatic reconnection."""
 
     _attr_has_entity_name = True
-    _attr_name = "Auto Reconnect"
+    _attr_translation_key = "auto_reconnect"
     _attr_icon = "mdi:bluetooth-connect"
 
     def __init__(self, coordinator: LionelTrainCoordinator, device_name: str) -> None:

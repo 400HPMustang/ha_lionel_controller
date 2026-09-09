@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
-
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME
@@ -22,7 +20,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the Lionel Train number platform."""
-    coordinator: LionelTrainCoordinator = hass.data[DOMAIN][config_entry.entry_id]
+    coordinator: LionelTrainCoordinator = config_entry.runtime_data
     name = config_entry.data[CONF_NAME]
     
     async_add_entities([
@@ -39,7 +37,7 @@ class LionelTrainThrottle(NumberEntity):
     """Representation of a Lionel Train throttle as a number entity."""
 
     _attr_has_entity_name = True
-    _attr_name = "Throttle"
+    _attr_translation_key = "throttle"
     _attr_icon = "mdi:train"
     _attr_mode = NumberMode.SLIDER
     _attr_native_min_value = 0
@@ -83,7 +81,7 @@ class LionelTrainMasterVolume(NumberEntity):
     """Representation of master volume control."""
 
     _attr_has_entity_name = True
-    _attr_name = "Master Volume"
+    _attr_translation_key = "master_volume"
     _attr_icon = "mdi:volume-high"
     _attr_mode = NumberMode.SLIDER
     _attr_native_min_value = 0
@@ -120,7 +118,7 @@ class LionelTrainHornVolume(NumberEntity):
     """Representation of horn volume control."""
 
     _attr_has_entity_name = True
-    _attr_name = "Horn Volume"
+    _attr_translation_key = "horn_volume"
     _attr_icon = "mdi:bullhorn"
     _attr_mode = NumberMode.SLIDER
     _attr_native_min_value = 0
@@ -158,7 +156,7 @@ class LionelTrainBellVolume(NumberEntity):
     """Representation of bell volume control."""
 
     _attr_has_entity_name = True
-    _attr_name = "Bell Volume"
+    _attr_translation_key = "bell_volume"
     _attr_icon = "mdi:bell"
     _attr_mode = NumberMode.SLIDER
     _attr_native_min_value = 0
@@ -196,7 +194,7 @@ class LionelTrainSpeechVolume(NumberEntity):
     """Representation of speech volume control."""
 
     _attr_has_entity_name = True
-    _attr_name = "Speech Volume"
+    _attr_translation_key = "speech_volume"
     _attr_icon = "mdi:account-voice"
     _attr_mode = NumberMode.SLIDER
     _attr_native_min_value = 0
@@ -234,7 +232,7 @@ class LionelTrainEngineVolume(NumberEntity):
     """Representation of engine volume control."""
 
     _attr_has_entity_name = True
-    _attr_name = "Engine Volume"
+    _attr_translation_key = "engine_volume"
     _attr_icon = "mdi:train"
     _attr_mode = NumberMode.SLIDER
     _attr_native_min_value = 0
